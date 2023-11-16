@@ -15,6 +15,7 @@ pipeline {
                 stash(name: 'compiled-results', includes: 'sources/*.py*')
             }
         }
+        
         stage('Test') {
             agent {
                 docker {
@@ -30,7 +31,16 @@ pipeline {
                 }
             }
         }
-        stage('Deliver') { 
+
+        stage('Manual Approval') {
+            agent any
+            steps {
+                checkout scm
+                input message: 'Lanjutkan ke tahap Deploy?'
+            }
+        }
+        
+        stage('Deploy') { 
             agent any
             environment { 
                 VOLUME = '$(pwd)/sources:/src'
@@ -47,6 +57,14 @@ pipeline {
                     archiveArtifacts "${env.BUILD_ID}/sources/dist/add2vals" 
                     sh "docker run --rm -v ${VOLUME} ${IMAGE} 'rm -rf build dist'"
                 }
+            }
+        }
+
+        stage('Sleep App') {
+            agent any
+            steps {
+                sh 'nohup "${env.BUILD_ID}/sources/dist/add2vals" &'
+                sleep(time: 60, unit: 'SECONDS')
             }
         }
     }
